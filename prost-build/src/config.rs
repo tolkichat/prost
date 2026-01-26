@@ -184,6 +184,35 @@ impl Config {
         self
     }
 
+    /// Configure the code generator to generate Rust [`uuid::Uuid`] fields for Protobuf
+    /// `bytes` fields matching a path.
+    ///
+    /// Paths are matched in the same way as the [`bytes`](Self::bytes) method.
+    /// This requires the `uuid` feature to be enabled in prost.
+    ///
+    /// # Arguments
+    ///
+    /// **`paths`** - paths to match.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # let mut config = prost_build::Config::new();
+    /// // Match all fields named 'id' or 'user_id'.
+    /// config.uuid(&["id", "user_id"]);
+    /// ```
+    pub fn uuid<I, S>(&mut self, paths: I) -> &mut Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        for matcher in paths {
+            self.bytes_type
+                .insert(matcher.as_ref().to_string(), BytesType::Uuid);
+        }
+        self
+    }
+
     /// Add additional attribute to matched fields.
     ///
     /// # Arguments

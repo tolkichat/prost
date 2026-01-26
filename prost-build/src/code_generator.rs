@@ -1001,6 +1001,7 @@ impl<'b> CodeGenerator<'_, 'b> {
                     format!("{}::alloc::vec::Vec<u8>", self.context.prost_path())
                 }
                 crate::BytesType::Bytes => format!("{}::bytes::Bytes", self.context.prost_path()),
+                crate::BytesType::Uuid => String::from("::uuid::Uuid"),
             },
             Type::Group | Type::Message => self.resolve_ident(field.type_name()),
         }

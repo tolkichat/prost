@@ -683,6 +683,26 @@ impl sealed::BytesAdapter for Vec<u8> {
     }
 }
 
+#[cfg(feature = "uuid")]
+impl BytesAdapter for uuid::Uuid {}
+
+#[cfg(feature = "uuid")]
+impl sealed::BytesAdapter for uuid::Uuid {
+    fn len(&self) -> usize {
+        16
+    }
+
+    fn replace_with(&mut self, mut buf: impl Buf) {
+        let mut bytes = [0u8; 16];
+        buf.copy_to_slice(&mut bytes);
+        *self = uuid::Uuid::from_bytes(bytes);
+    }
+
+    fn append_to(&self, buf: &mut impl BufMut) {
+        buf.put_slice(self.as_bytes());
+    }
+}
+
 pub mod bytes {
     use crate::error::DecodeErrorKind;
 

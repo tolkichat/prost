@@ -402,6 +402,7 @@ pub enum Ty {
 pub enum BytesTy {
     Vec,
     Bytes,
+    Uuid,
 }
 
 impl BytesTy {
@@ -409,14 +410,17 @@ impl BytesTy {
         match s {
             "vec" => Ok(BytesTy::Vec),
             "bytes" => Ok(BytesTy::Bytes),
+            "uuid" => Ok(BytesTy::Uuid),
             _ => bail!("Invalid bytes type: {s}"),
         }
     }
 
     fn rust_type(&self, prost_path: &Path) -> TokenStream {
+        let _ = prost_path; // unused for Uuid variant
         match self {
             BytesTy::Vec => quote! { #prost_path::alloc::vec::Vec<u8> },
             BytesTy::Bytes => quote! { #prost_path::bytes::Bytes },
+            BytesTy::Uuid => quote! { ::uuid::Uuid },
         }
     }
 }
