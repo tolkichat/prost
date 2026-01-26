@@ -117,9 +117,14 @@ impl Field {
 
         match self.kind {
             Kind::Plain(ref default) => {
-                let default = default.typed();
+                // For Uuid, compare with nil() instead of typed default bytes
+                let default_cmp = if let Ty::Bytes(BytesTy::Uuid) = self.ty {
+                    quote!(::uuid::Uuid::nil())
+                } else {
+                    default.typed()
+                };
                 quote! {
-                    if #ident != #default {
+                    if #ident != #default_cmp {
                         #encode_fn(#tag, &#ident, buf);
                     }
                 }
@@ -171,9 +176,14 @@ impl Field {
 
         match self.kind {
             Kind::Plain(ref default) => {
-                let default = default.typed();
+                // For Uuid, compare with nil() instead of typed default bytes
+                let default_cmp = if let Ty::Bytes(BytesTy::Uuid) = self.ty {
+                    quote!(::uuid::Uuid::nil())
+                } else {
+                    default.typed()
+                };
                 quote! {
-                    if #ident != #default {
+                    if #ident != #default_cmp {
                         #encoded_len_fn(#tag, &#ident)
                     } else {
                         0
@@ -194,7 +204,9 @@ impl Field {
             Kind::Plain(ref default) | Kind::Required(ref default) => {
                 let default = default.typed();
                 match self.ty {
-                    Ty::String | Ty::Bytes(..) => quote!(#ident.clear()),
+                    Ty::String => quote!(#ident.clear()),
+                    Ty::Bytes(BytesTy::Uuid) => quote!(#ident = ::uuid::Uuid::nil()),
+                    Ty::Bytes(..) => quote!(#ident.clear()),
                     _ => quote!(#ident = #default),
                 }
             }
@@ -352,10 +364,19 @@ impl Field {
         } else if let Kind::Optional(ref default) = self.kind {
             let ty = self.ty.rust_ref_type();
 
-            let match_some = if self.ty.is_numeric() {
+            // For numeric types and Uuid (which is Copy), return by value
+            // For other types (String, Vec<u8>, Bytes), return by ref
+            let match_some = if self.ty.is_numeric() || self.ty.is_uuid() {
                 quote!(::core::option::Option::Some(val) => val,)
             } else {
                 quote!(::core::option::Option::Some(ref val) => &val[..],)
+            };
+
+            // For Uuid, use nil() as default instead of typed bytes
+            let default_val = if self.ty.is_uuid() {
+                quote!(::uuid::Uuid::nil())
+            } else {
+                quote!(#default)
             };
 
             let get_doc = format!(
@@ -367,7 +388,7 @@ impl Field {
                 pub fn #get(&self) -> #ty {
                     match self.#ident {
                         #match_some
-                        ::core::option::Option::None => #default,
+                        ::core::option::Option::None => #default_val,
                     }
                 }
             })
@@ -554,9 +575,16 @@ impl Ty {
             Ty::Sfixed64 => quote!(i64),
             Ty::Bool => quote!(bool),
             Ty::String => quote!(&str),
+            // Uuid is Copy, so return by value
+            Ty::Bytes(BytesTy::Uuid) => quote!(::uuid::Uuid),
             Ty::Bytes(..) => quote!(&[u8]),
             Ty::Enumeration(..) => quote!(i32),
         }
+    }
+
+    /// Returns true if the type is a Uuid (which is Copy and should be treated differently)
+    pub fn is_uuid(&self) -> bool {
+        matches!(self, Ty::Bytes(BytesTy::Uuid))
     }
 
     pub fn module(&self) -> Ident {
